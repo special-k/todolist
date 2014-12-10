@@ -1,0 +1,61 @@
+.ui.mask {
+  overflow: hidden;
+  -moz-user-select: -moz-none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -o-user-select: none;
+  user-select: none; }
+
+.ui.mask > *:first-child {
+  -webkit-transition: margin 0.2s ease-out;
+  transition: margin 0.2s ease-out;
+  display: inline-block; }
+
+.ui.veriField {
+  display: inline-block;
+  height: 39px;
+  color: white;
+  font-size: 14px;
+  text-shadow: white 0 0 3px;
+  background-color: rgba(0, 221, 255, 0.4);
+  box-shadow: 0 0 1px 1px black;
+  border: 0; }
+
+.ui.slideCounter {
+  -moz-user-select: -moz-none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  display: inline-block;
+  font-size: 16px;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: middle;
+  cursor: ns-resize; }
+
+.dropdown {
+  height: 40px;
+  position: relative; }
+  .dropdown.showPanel .panel {
+    display: block; }
+  .dropdown .itemName {
+    font-size: 16px;
+    height: 20px;
+    line-height: 20px;
+    padding: 10px;
+    padding-right: 30px;
+    position: relative;
+    display: block; }
+    .dropdown .itemName .arrow {
+      display: none; }
+  .dropdown .panel {
+    display: none;
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    right: 0;
+    text-align: left; }
+    .dropdown .panel a {
+      padding: 10px;
+      display: block; }
