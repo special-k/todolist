@@ -1,7 +1,4 @@
-window.start = ->
-  todolist = new Todolist document.one 'todoapp'
-
-class Todolist extends RT.Stratum
+class glob.Todolist extends RT.Stratum
   constructor: (@dom)->
     super
     @addManager 'listManager', new ListManager
@@ -39,60 +36,35 @@ class glob.ListManager extends RT.BaseManager
     @storage = @storageManager.todoItems
     @storage.bi 'onSet', 'onSetTodoItem', context: @
     @storage.bi 'onRemove', 'onRemoveTodoItem', context: @
-    @makeAction window.location.href.split( '#' )[1]
+    @makeAction()
     @updateItemsCount()
 
   onHashChange: (el,e)->
-    @makeAction e.newURL.split( '#' )[1]
+    @makeAction()
 
-  makeAction: (v)->
+  makeAction: ->
     @panelsManager.clear( 'todoList' )
-    switch v
+    switch window.location.href.split( '#' )[1]
       when '/active'
-        @viewMode = 'active'
         @statusBarEl.selectActiveOnly()
         for item in @storage.getObjects( (item)-> !item.isChecked )
           @panelsManager.append 'todoList', @getOrCreateItem( item )
       when '/completed'
-        @viewMode = 'completed'
         @statusBarEl.selectCompletedOnly()
         for item in @storage.getObjects( (item)-> item.isChecked )
           @panelsManager.append 'todoList', @getOrCreateItem( item )
       else
-        @viewMode = 'all'
         @statusBarEl.selectAll()
         for item in @storage.getObjects()
           @panelsManager.append 'todoList', @getOrCreateItem( item )
 
   onSetTodoItem: (storage, recordId, obj)->
-    if @todoItems[recordId]?
-      widget = @getOrCreateItem obj
+    widget = @todoItems[recordId]
+    if widget?
       widget.update obj
     else
-      widget = @getOrCreateItem obj
-
-    if widget.isAdded()
-      if obj.isChecked && @viewMode == 'active'
-        widget.removeSelf()
-      if !obj.isChecked && @viewMode == 'completed'
-        widget.removeSelf()
-    else
-      if !obj.isChecked && @viewMode == 'active'
-        a = @storage.getObjects (el)-> !el.isChecked
-        i = a.indexOf obj
-        if i == 0
-          @panelsManager.append 'todoList', widget, beforeAt: 0
-        else
-          @panelsManager.append 'todoList', widget, after: @todoItems[a[i-1].id]
-      if obj.isChecked && @viewMode == 'completed'
-        a = @storage.getObjects (el)-> el.isChecked
-        i = a.indexOf obj
-        if i == 0
-          @panelsManager.append 'todoList', widget, beforeAt: 0
-        else
-          @panelsManager.append 'todoList', widget, after: @todoItems[a[i-1].id]
-      if @viewMode == 'all'
-        @panelsManager.append 'todoList', widget
+      widget = @createItem obj
+    @makeAction()
     @updateItemsCount()
 
   onRemoveTodoItem: (storage, recordId)->
@@ -117,14 +89,15 @@ class glob.ListManager extends RT.BaseManager
         @storage.set obj.id, obj
 
   getOrCreateItem: (params)->
-    t = @todoItems[params.id]
-    unless t?
-      t = RT.todoItem( params )
-        .bi( 'onDone', 'onDone', context: @ )
-        .bi( 'onComback', 'onComback', context: @ )
-        .bi( 'onDelete', 'onDelete', context: @ )
-        .bi( 'onEdit', 'onEdit', context: @ )
-      @todoItems[params.id] = t
+   @todoItems[params.id] || @createItem( params )
+
+  createItem: (params)->
+    t = RT.todoItem( params )
+      .bi( 'onDone', 'onDone', context: @ )
+      .bi( 'onComback', 'onComback', context: @ )
+      .bi( 'onDelete', 'onDelete', context: @ )
+      .bi( 'onEdit', 'onEdit', context: @ )
+    @todoItems[params.id] = t
     t
 
   onDone: (widget)->
@@ -153,7 +126,6 @@ class glob.ListManager extends RT.BaseManager
     else
       unless @statusBarEl.isAdded()
         @stratum.dom.add @statusBarEl 
-
 
 
 class TodoItemWidget extends RedTeaWidget
@@ -209,7 +181,6 @@ class TodoItemWidget extends RedTeaWidget
   onFinishEdit: (el,e)->
     @fire 'onEdit', el.value
     @stopEdit()
-
 
 
 class StatusBarWidget extends RedTeaWidget
