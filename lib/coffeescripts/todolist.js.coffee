@@ -6,6 +6,7 @@ class Todolist extends RT.Stratum
     super
     @addManager 'listManager', new ListManager
     @addManager 'panelsManager', new TodolistPanelsManager
+    @addManager 'storageManager', new StorageManager
 
 
 class glob.TodolistPanelsManager extends RT.ControlsPanelsManager
@@ -14,18 +15,30 @@ class glob.TodolistPanelsManager extends RT.ControlsPanelsManager
     @setPanel 'todoList', document.one( 'todo-list' )
 
 
+class glob.StorageManager extends RT.BaseManager
+  constructor: ->
+    @todoItems = new RT.Storage('todoItems')
+
+
 class glob.ListManager extends RT.BaseManager
 
-  managers: ['panelsManager']
+  managers: ['panelsManager', 'storageManager']
 
   constructor: ->
+    anti = new RT.SimpleSyncAnticipant
+    @bi 'panelsManagerLoaded', 'managersLoaded', through: anti
+    @bi 'storageManagerLoaded', 'managersLoaded', through: anti
+
     document.one( 'new-todo' ).bi RTC.KEYUP, 'onNewTodoAdd', context: @
+    document.one( 'toggle-all' ).sprm('checked', false).bi RTC.CHANGE, 'onToggleAll', context: @
     window.bi RTC.HASHCHANGE, 'onHashChange', context: @
     @todoItems = {}
-
-  panelsManagerLoaded: ->
     @statusBarEl = RT.statusBar().bi 'onRemoveCompleted', 'onRemoveCompleted', context: @
-    @stratum.dom.add @statusBarEl 
+
+  managersLoaded: ->
+    @storage = @storageManager.todoItems
+    @storage.bi 'onSet', 'onSetTodoItem', context: @
+    @storage.bi 'onRemove', 'onRemoveTodoItem', context: @
     @makeAction window.location.href.split( '#' )[1]
     @updateItemsCount()
 
@@ -38,29 +51,70 @@ class glob.ListManager extends RT.BaseManager
       when '/active'
         @viewMode = 'active'
         @statusBarEl.selectActiveOnly()
-        for item in RT.Storage.getObjectsByPath( 'todoItems' )
-          unless item.isChecked
-            @panelsManager.append 'todoList', @getOrCreateItem( item )
+        for item in @storage.getObjects( (item)-> !item.isChecked )
+          @panelsManager.append 'todoList', @getOrCreateItem( item )
       when '/completed'
         @viewMode = 'completed'
         @statusBarEl.selectCompletedOnly()
-        for item in RT.Storage.getObjectsByPath( 'todoItems' )
-          if item.isChecked
-            @panelsManager.append 'todoList', @getOrCreateItem( item )
+        for item in @storage.getObjects( (item)-> item.isChecked )
+          @panelsManager.append 'todoList', @getOrCreateItem( item )
       else
         @viewMode = 'all'
         @statusBarEl.selectAll()
-        for item in RT.Storage.getObjectsByPath( 'todoItems' )
+        for item in @storage.getObjects()
           @panelsManager.append 'todoList', @getOrCreateItem( item )
+
+  onSetTodoItem: (storage, recordId, obj)->
+    if @todoItems[recordId]?
+      widget = @getOrCreateItem obj
+      widget.update obj
+    else
+      widget = @getOrCreateItem obj
+
+    if widget.isAdded()
+      if obj.isChecked && @viewMode == 'active'
+        widget.removeSelf()
+      if !obj.isChecked && @viewMode == 'completed'
+        widget.removeSelf()
+    else
+      if !obj.isChecked && @viewMode == 'active'
+        a = @storage.getObjects (el)-> !el.isChecked
+        i = a.indexOf obj
+        if i == 0
+          @panelsManager.append 'todoList', widget, beforeAt: 0
+        else
+          @panelsManager.append 'todoList', widget, after: @todoItems[a[i-1].id]
+      if obj.isChecked && @viewMode == 'completed'
+        a = @storage.getObjects (el)-> el.isChecked
+        i = a.indexOf obj
+        if i == 0
+          @panelsManager.append 'todoList', widget, beforeAt: 0
+        else
+          @panelsManager.append 'todoList', widget, after: @todoItems[a[i-1].id]
+      if @viewMode == 'all'
+        @panelsManager.append 'todoList', widget
+    @updateItemsCount()
+
+  onRemoveTodoItem: (storage, recordId)->
+    @todoItems[recordId].removeSelf()
+    delete @todoItems[recordId]
+    @updateItemsCount()
 
   onNewTodoAdd: (el, e)->
     t = el.value.trim()
     if e.keyCode == 13 && t != ''
-      params = body: t, isChecked: false
-      RT.Storage.pushObject 'todoItems', params
-      @panelsManager.append 'todoList', @getOrCreateItem( params )
       el.value = ''
-      @updateItemsCount()
+      @storage.push body: t, isChecked: false
+
+  onToggleAll: (checkbox, e)->
+    if checkbox.checked
+      for obj in @storage.getObjects( (el)-> !el.isChecked )
+        obj.isChecked = true
+        @storage.set obj.id, obj
+    else
+      for obj in @storage.getObjects( (el)-> el.isChecked )
+        obj.isChecked = false
+        @storage.set obj.id, obj
 
   getOrCreateItem: (params)->
     t = @todoItems[params.id]
@@ -74,33 +128,32 @@ class glob.ListManager extends RT.BaseManager
     t
 
   onDone: (widget)->
-    RT.Storage.set widget.id, id: widget.id, body: widget.body, isChecked: true
-    if @viewMode == 'active'
-      widget.removeSelf()
-    @updateItemsCount()
+    @storage.set widget.id, id: widget.id, body: widget.body, isChecked: true
 
   onComback: (widget)->
-    RT.Storage.set widget.id, id: widget.id, body: widget.body, isChecked: false
-    @updateItemsCount()
+    @storage.set widget.id, id: widget.id, body: widget.body, isChecked: false
 
   onDelete: (widget)->
-    RT.Storage.delete widget.id
-    widget.removeSelf()
-    delete @todoItems[widget.id]
-    @updateItemsCount()
+    @storage.remove widget.id
 
-  onEdit: (widget)->
-    RT.Storage.set widget.id, id: widget.id, body: widget.body, isChecked: widget.isChecked
-
-  updateItemsCount: ->
-    @statusBarEl.setCount RT.Storage.getObjectsByPath( 'todoItems' ).filter( (el)-> !el.isChecked ).length
-    @statusBarEl.setCompletedCount RT.Storage.getObjectsByPath( 'todoItems' ).filter( (el)-> el.isChecked ).length
+  onEdit: (widget, body)->
+    @storage.set widget.id, id: widget.id, body: body, isChecked: widget.isChecked
 
   onRemoveCompleted: ->
-    for item in RT.Storage.getObjectsByPath( 'todoItems' ).filter( (el)-> el.isChecked )
-      RT.Storage.delete item.id
-    @updateItemsCount()
-    @makeAction window.location.href.split( '#' )[1]
+    for item in @storage.getObjects( (el)-> el.isChecked )
+      @storage.remove item.id
+
+  updateItemsCount: ->
+    uncheckedCount = @storage.getObjects( (el)-> !el.isChecked ).length
+    completedCount = @storage.getObjects( (el)-> el.isChecked ).length
+    @statusBarEl.setCount uncheckedCount
+    @statusBarEl.setCompletedCount completedCount
+    if uncheckedCount == 0 && completedCount == 0
+      @statusBarEl.removeSelf()
+    else
+      unless @statusBarEl.isAdded()
+        @stratum.dom.add @statusBarEl 
+
 
 
 class TodoItemWidget extends RedTeaWidget
@@ -118,23 +171,21 @@ class TodoItemWidget extends RedTeaWidget
         @button( class: 'destroy' ).bi RTC.CLICK, 'onDeleteFire', context: self
       @input( class: 'edit', value: self.body ).setas( 'editField' ).bi RTC.CHANGE, 'onFinishEdit', context: self
 
-  init: ->
+  init: (params)->
     window.bi RTC.CLICK, 'stopEdit', context: @
+    @update params
+
+  update: (params)->
+    @isChecked = params.isChecked
     if @isChecked
       @checkboxEl.checked = true
       @dom.addCls 'completed'
-
-  onChange: (el, e)->
-    if el.checked
-      @fire 'onDone'
-      @isChecked = true
     else
-      @fire 'onComback'
-      @isChecked = false
-    @dom.togCls 'completed'
-
-  onDeleteFire: (el, e)->
-    @fire 'onDelete'
+      @checkboxEl.checked = false
+      @dom.remCls 'completed'
+    @body = params.body
+    @bodyEl.nodeValue = @body
+    @editField.value = @body
 
   onStartEdit: (el, e)->
     e.preventDefault()
@@ -143,14 +194,22 @@ class TodoItemWidget extends RedTeaWidget
     @editField.value = ''
     @editField.value = @body
 
-  onFinishEdit: (el,e)->
-    @body = el.value
-    @bodyEl.nodeValue = el.value
+  stopEdit: ->
     @dom.remCls 'editing'
-    @fire 'onEdit'
 
-  stopEdit: (el,e)->
-    @dom.remCls 'editing'
+  onChange: (el, e)->
+    if el.checked
+      @fire 'onDone'
+    else
+      @fire 'onComback'
+
+  onDeleteFire: (el, e)->
+    @fire 'onDelete'
+
+  onFinishEdit: (el,e)->
+    @fire 'onEdit', el.value
+    @stopEdit()
+
 
 
 class StatusBarWidget extends RedTeaWidget
