@@ -1,0 +1,5 @@
+.sass-cache/
+Gemfile
+Gemfile.lock
+Guardfile
+utils.thor
