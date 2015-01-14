@@ -5,6 +5,17 @@ class glob.Todolist extends RT.Stratum
     @addManager 'panelsManager', new TodolistPanelsManager
     @addManager 'storageManager', new StorageManager
 
+    document.body.add ->
+      @aside class: 'learn', ->
+        @header ->
+          @h3 ->
+            @tn 'RedTea'
+          @span class: 'source-links', ->
+            @h5 ->
+              @tn 'Example'
+            @a href: "https://github.com/special-k/todolist", ->
+              @tn 'Source'
+
 
 class glob.TodolistPanelsManager extends RT.ControlsPanelsManager
   init: ->
@@ -31,6 +42,7 @@ class glob.ListManager extends RT.BaseManager
     window.bi RTC.HASHCHANGE, 'onHashChange', context: @
     @todoItems = {}
     @statusBarEl = RT.statusBar().bi 'onRemoveCompleted', 'onRemoveCompleted', context: @
+    @mainEl = document.one( 'main' )
 
   managersLoaded: ->
     @storage = @storageManager.todoItems
@@ -123,9 +135,12 @@ class glob.ListManager extends RT.BaseManager
     @statusBarEl.setCompletedCount completedCount
     if uncheckedCount == 0 && completedCount == 0
       @statusBarEl.removeSelf()
+      @mainEl.style.display = 'none'
+
     else
       unless @statusBarEl.isAdded()
         @stratum.dom.add @statusBarEl 
+        @mainEl.style.display = 'block'
 
 
 class TodoItemWidget extends RedTeaWidget
