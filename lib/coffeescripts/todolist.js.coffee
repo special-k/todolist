@@ -1,11 +1,16 @@
 class glob.Todolist extends RT.Stratum
-  constructor: (@dom)->
+  constructor: ->
     super
-    @addManager 'listManager', new ListManager
-    @addManager 'panelsManager', new TodolistPanelsManager
-    @addManager 'storageManager', new StorageManager
-
-    document.body.add ->
+    self = @
+    document.body.append ->
+      @section(id: 'todoapp').setas('dom', self).append ->
+        @header id: 'header', ->
+          @h1 ->
+            @tn 'todolist'
+          @input id: 'new-todo', placeholder: 'What needs to be done?', autofocus: '' 
+        @section style: 'display: block;', id: 'main', ->
+          @input id: 'toggle-all', type: 'checkbox'
+          @ul(id: 'todo-list').setas('todoListEl', self)
       @aside class: 'learn', ->
         @header ->
           @h3 ->
@@ -15,12 +20,23 @@ class glob.Todolist extends RT.Stratum
               @tn 'Example'
             @a href: "https://github.com/special-k/todolist", ->
               @tn 'Source'
+      @footer id: 'info', ->
+        @p ->
+          @tn 'Double-click to edit a todo'
+        @p ->
+          @tn 'Written by '
+          @a href: 'https://github.com/special-k', ->
+            @tn 'Kirill Jakovlev'
+
+    @addManager 'listManager', new ListManager
+    @addManager 'panelsManager', new TodolistPanelsManager
+    @addManager 'storageManager', new StorageManager
 
 
 class glob.TodolistPanelsManager extends RT.ControlsPanelsManager
   init: ->
     super
-    @setPanel 'todoList', document.one( 'todo-list' )
+    @setPanel 'todoList', @stratum.todoListEl
 
 
 class glob.StorageManager extends RT.BaseManager
@@ -139,119 +155,5 @@ class glob.ListManager extends RT.BaseManager
 
     else
       unless @statusBarEl.isAdded()
-        @stratum.dom.add @statusBarEl 
+        @stratum.dom.append @statusBarEl 
         @mainEl.style.display = 'block'
-
-
-class TodoItemWidget extends RedTeaWidget
-
-  @register 'todoItem'
-
-  isMain: true
-
-  createDom: (self)->
-    @li().bi(RTC.DBLCLICK, 'onStartEdit', context: self).add ->
-      @div class: 'view', ->
-        @input( class: 'toggle', type: 'checkbox' ).setas('checkboxEl').bi RTC.CHANGE, 'onChange', context: self
-        @label ->
-          @tn( self.body ).setas 'bodyEl'
-        @button( class: 'destroy' ).bi RTC.CLICK, 'onDeleteFire', context: self
-      @input( class: 'edit', value: self.body ).setas( 'editField' ).bi RTC.CHANGE, 'onFinishEdit', context: self
-
-  init: (params)->
-    window.bi RTC.CLICK, 'stopEdit', context: @
-    @update params
-
-  update: (params)->
-    @isChecked = params.isChecked
-    if @isChecked
-      @checkboxEl.checked = true
-      @dom.addCls 'completed'
-    else
-      @checkboxEl.checked = false
-      @dom.remCls 'completed'
-    @body = params.body
-    @bodyEl.nodeValue = @body
-    @editField.value = @body
-
-  onStartEdit: (el, e)->
-    e.preventDefault()
-    @dom.addCls 'editing'
-    @editField.focus()
-    @editField.value = ''
-    @editField.value = @body
-
-  stopEdit: ->
-    @dom.remCls 'editing'
-
-  onChange: (el, e)->
-    if el.checked
-      @fire 'onDone'
-    else
-      @fire 'onComback'
-
-  onDeleteFire: (el, e)->
-    @fire 'onDelete'
-
-  onFinishEdit: (el,e)->
-    @fire 'onEdit', el.value
-    @stopEdit()
-
-
-class StatusBarWidget extends RedTeaWidget
-
-  @register 'statusBar'
-
-  isMain: true
-
-  createDom: (self)->
-    @footer id: 'footer', ->
-      @span id: 'todo-count', ->
-        @strong ->
-          @tn( '0' ).setas 'todoCountEl'
-          @tn ' item left'
-      @ul id: 'filters', ->
-        @li ->
-          @a( href: '#/' ).setas('allButton').add ->
-            @tn 'All'
-        @li ->
-          @a( href: '#/active' ).setas('activeButton').add ->
-            @tn 'Active'
-        @li ->
-          @a( href: '#/completed' ).setas('completedButton').add ->
-            @tn 'Completed'
-
-  init: ->
-    self = @
-    @removeCompletedButton = RT.button( id: 'clear-completed' ).bi( RTC.CLICK, 'onRemoveCompletedFire', context: @).add ->
-      @tn 'Clear completed ('
-      @tn( '0' ).setas 'completedCountEl', self
-      @tn ')'
-
-  selectAll: ->
-    @selectItem @allButton
-
-  selectActiveOnly: ->
-    @selectItem @activeButton
-
-  selectCompletedOnly: ->
-    @selectItem @completedButton
-
-  selectItem: (item)->
-    if @selectedItem?
-      @selectedItem.remCls 'selected'
-    item.addCls 'selected'
-    @selectedItem = item
-
-  setCount: (v)->
-    @todoCountEl.nodeValue = v
-
-  setCompletedCount: (v)->
-    @completedCountEl.nodeValue = v
-    if v > 0
-      @dom.add @removeCompletedButton
-    else
-      @removeCompletedButton.removeSelf()
-
-  onRemoveCompletedFire: ->
-    @fire 'onRemoveCompleted'
