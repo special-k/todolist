@@ -4,28 +4,16 @@
     <meta charset=utf-8 >
     <link rel=stylesheet href=stylesheets/redtea.ui.css />
     <link rel=stylesheet href=stylesheets/base.css />
-    <script src=javascripts/redtea.js ></script>
-    <script src=javascripts/redtea.core.js ></script>
-    <script src=javascripts/redtea.ui.js ></script>
-    <script src=javascripts/redtea.framework.js ></script>
-    <script src=javascripts/todolist.js ></script>
+    <script src=javascripts/redtea.js></script>
+    <script src=javascripts/redtea.core.js></script>
+    <script src=javascripts/redtea.ui.js></script>
+    <script src=javascripts/redtea.framework.js></script>
+    <script src=javascripts/widgets/status_bar.js></script>
+    <script src=javascripts/widgets/todo_item.js></script>
+    <script src=javascripts/todolist.js></script>
     <title>Todolist</title>
   </head>
   <body class=learn-bar>
-    <section id=todoapp>
-      <header id=header>
-        <h1>todolist</h1>
-        <input id=new-todo placeholder="What needs to be done?" autofocus="">
-      </header>
-      <section style="display: block;" id="main">
-        <input id="toggle-all" type="checkbox">
-        <ul id="todo-list"></ul>
-      </section>
-    </section>
-    <footer id="info">
-      <p>Double-click to edit a todo</p>
-      <p>Written by <a href="https://github.com/special-k">Kirill Jakovlev</a></p>
-    </footer>
-    <script>new Todolist( document.one( 'todoapp' ) );</script>
+    <script>new Todolist();</script>
   </body>
 </html>
