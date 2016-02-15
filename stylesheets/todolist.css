@@ -1,0 +1,15 @@
+#todo-list {
+  position: relative;
+  z-index: 2; }
+
+.checkbox {
+  float: left;
+  position: relative;
+  z-index: 1; }
+
+.textBox {
+  transition: color 0.4s; }
+
+.done .textBox {
+  text-decoration: line-through;
+  color: #ccc; }
