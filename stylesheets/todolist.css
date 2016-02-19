@@ -25,7 +25,8 @@
   top: 0;
   bottom: 0;
   margin: auto 0;
-  border: none; }
+  border: none;
+  box-sizing: border-box; }
 
 .stringField {
   margin-left: 45px;
