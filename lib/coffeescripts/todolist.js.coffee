@@ -135,7 +135,6 @@ class List extends RT.Widget
   #подписка на основыные изменения
   storageInit: ->
     @bime @getCollectionField('items'), 'onItemAdded', 'onItemAdded'
-    #@bime @getCollectionField('items'), 'onItemRemoved', 'onItemRemoved'
     @bime @getCollectionField('items'), 'onItemChanged', 'onItemChanged'
 
   onItemAdded: (eventObject, item)->
@@ -147,12 +146,6 @@ class List extends RT.Widget
       @asyncUpdateCount()
       #скрытие/показ элемента в зависимости от фильтра видимости
       @checkTouching item
-
-  #onItemRemoved: (eventObject, item)->
-    #if item.widget
-      ##удаление
-      #item.widget.destroy()
-      #@asyncUpdateCount()
 
   onItemChanged: (eventObject, item, field, value)->
     #изменение полей storageItem виджета "дела"
