@@ -4,7 +4,9 @@ class glob.Todolist extends RT.Stratum
     super
     @addManager 'itemsManager', new ItemsManager
     @addManager 'routesManager', new RoutesManager
-    document.body.append @list()
+    document.body.append @list ->
+      ##можно добавлять дела в список и так
+      #@item storageData: {task: 'Новое дело', finished: false, touched: true}
 
 #данный менеджер реализует интерфейс для работы с коллекцией элементов
 class ItemsManager extends RT.BaseManager
@@ -13,6 +15,7 @@ class ItemsManager extends RT.BaseManager
 
   #сеттер основного объекта коллекции списка дел
   setStorageItems: (@storageItems)->
+    @bime @storageItems, 'onItemAdded', 'onItemAdded'
     @bime @storageItems, 'onItemChanged', 'onItemChanged'
     @loadItems()
 
@@ -25,6 +28,10 @@ class ItemsManager extends RT.BaseManager
         if value
           @storageItems.remove item
           @asyncStore()
+
+  #сохранение коллекции при добавлении дела
+  onItemAdded: (eventObject, item)->
+    @asyncStore()
 
   #удобный доступ к отфильтрованным частям коллекции
   scope: (name)->
@@ -48,7 +55,6 @@ class ItemsManager extends RT.BaseManager
   createItem: (value)->
     if value
       @storageItems.push new RT.StorageItem(task: value, finished: false, touched: true, 'both')
-      @asyncStore()
 
   #удаление элемента
   deleteItem: (item)->
@@ -118,7 +124,7 @@ class List extends RT.Widget
   createDom: (self)->
     @section id: 'todoapp', ->
       @h1 ->
-        @tn 'todolist'
+        @tn 'дела'
       #данный узел записан в объектную переменную @listEl (this.listEl) для последующего использования
       @ul(id: 'todo-list').setas('listEl', self).append ->
         @newItem()
@@ -130,7 +136,14 @@ class List extends RT.Widget
   #но можно установить специфичное правило добавления элементов
   #в данном случае все дочерние элементы будут добавляться к @listEl (смотри выше)
   append: (el, params)->
+    @newAddedItems = []
     @addHelper @listEl, el, params
+    #добавленные элементы должны проверяться на видимость
+    for item in @newAddedItems
+      #скрытие/показ элемента в зависимости от фильтра видимости
+      @checkTouching item
+    #обновление счетчика незавершенных дел
+    @asyncUpdateCount()
 
   #подписка на основыные изменения
   storageInit: ->
@@ -142,10 +155,14 @@ class List extends RT.Widget
       #добавление нового "дела"
       @append ->
         @item storageItem: item
-      #обновление счетчика незавершенных дел
-      @asyncUpdateCount()
-      #скрытие/показ элемента в зависимости от фильтра видимости
       @checkTouching item
+      @asyncUpdateCount()
+    else
+      #если "дело" добавляется через storageItem,
+      #то его видимость и счетчики будет обновляться в этой функции,
+      #иначе элемент нужно сохранить в массив, чтобы выполнить операции
+      #после добавления его (виджета) в DOM 
+      @newAddedItems.push item
 
   onItemChanged: (eventObject, item, field, value)->
     #изменение полей storageItem виджета "дела"
@@ -430,13 +447,13 @@ class Tools extends RT.Widget
     @ul id: 'filters', ->
       @li ->
         @a( href: '#/' ).setas('/', self.buttons).add ->
-          @tn 'All'
+          @tn 'все'
       @li ->
         @a( href: '#/active' ).setas('/active', self.buttons).add ->
-          @tn 'Active'
+          @tn 'активные'
       @li ->
         @a( href: '#/completed' ).setas('/completed', self.buttons).add ->
-          @tn 'Completed'
+          @tn 'сделанные'
   #=========================================-
 
   storageInit: ->
